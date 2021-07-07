@@ -20,7 +20,8 @@ def baseline_numpy(M: int, N: int, K: int, dtype: str = "float32", repeat: int =
     """return the latency of numpy implementation
     """
     np_runing_time = timeit.timeit(
-        setup=f'''import numpy as np
+        setup=f'''
+import numpy
 M, N, K = {M}, {N}, {K}
 a = numpy.random.rand(M, K).astype({dtype})
 b = numpy.random.rand(K, N).astype({dtype})
