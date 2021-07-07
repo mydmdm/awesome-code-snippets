@@ -3,7 +3,7 @@ import tvm.testing
 from tvm import te
 import numpy
 import timeit
-from ..utils import *
+from tvm_utils.utils import *
 
 
 def create_compute(M: int, N: int, K: int):
