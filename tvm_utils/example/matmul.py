@@ -21,9 +21,9 @@ def baseline_numpy(M: int, N: int, K: int, dtype: str = "float32", repeat: int =
     """
     np_runing_time = timeit.timeit(
         setup=f'''import numpy as np
-        M, N, K = {M}, {N}, {K}
-        a = numpy.random.rand(M, K).astype({dtype})
-        b = numpy.random.rand(K, N).astype({dtype})
+M, N, K = {M}, {N}, {K}
+a = numpy.random.rand(M, K).astype({dtype})
+b = numpy.random.rand(K, N).astype({dtype})
         ''',
         stmt="answer = numpy.dot(a, b)",
         number=repeat,
