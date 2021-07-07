@@ -19,15 +19,18 @@ def create_compute(M: int, N: int, K: int):
 def baseline_numpy(M: int, N: int, K: int, dtype: str = "float32", repeat: int = 100):
     """return the latency of numpy implementation
     """
-    np_runing_time = timeit.timeit(
-        setup=f'''
+    np_setup_cmds = f'''
 import numpy
 M, N, K = {M}, {N}, {K}
-a = numpy.random.rand(M, K).astype({dtype})
-b = numpy.random.rand(K, N).astype({dtype})
-        ''',
+dtype = "{dtype}"
+a = numpy.random.rand(M, K).astype(dtype)
+b = numpy.random.rand(K, N).astype(dtype)
+'''
+    print(np_setup_cmds)
+    np_runing_time = timeit.timeit(
+        setup=np_setup_cmds,
         stmt="answer = numpy.dot(a, b)",
         number=repeat,
     )
-    print("Numpy running time: %f" % (np_runing_time / np_repeat))
+    print("Numpy running time: %f" % (np_runing_time / repeat))
     return np_runing_time
