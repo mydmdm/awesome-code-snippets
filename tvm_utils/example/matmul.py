@@ -80,7 +80,7 @@ def cuda_impl(M: int, N: int, K: int, schedule, dtype: str = "float32", target: 
 
     evaluator = func.time_evaluator(func.entry_name, dev, number=repeat)
     cuda_running_time = evaluator(a, b, c).mean
-    print(f"Baseline: {cuda_running_time}")
+    print(f"{name}: {cuda_running_time}")
     return func, s, cuda_running_time
 
 
