@@ -60,6 +60,30 @@ def create_cuda_schedule(stages, block_size, tx, ty, tk):
     return s
 
 
+def cuda_impl(M: int, N: int, K: int, schedule, dtype: str = "float32", target: str = "cuda", repeat: int = 100, name: str = None):
+    A, B, C = create_compute(M, N, K)
+    s = schedule((A, B, C))
+
+    dev = tvm.device(target, 0)
+    name = name or f'{target}_impl'
+    func = tvm.build(s, [A, B, C], target=target, name=name)
+    assert func
+
+    # Random generated tensor for testing
+    a = tvm.nd.array(numpy.random.rand(M, K).astype(dtype), dev)
+    b = tvm.nd.array(numpy.random.rand(K, N).astype(dtype), dev)
+    answer = numpy.dot(a.numpy(), b.numpy())
+
+    c = tvm.nd.array(numpy.zeros((M, N), dtype=dtype), dev)
+    func(a, b, c)
+    tvm.testing.assert_allclose(c.numpy(), answer, rtol=1e-5)
+
+    evaluator = func.time_evaluator(func.entry_name, dev, number=repeat)
+    cuda_running_time = evaluator(a, b, c).mean
+    print(f"Baseline: {cuda_running_time}")
+    return func, s, cuda_running_time
+
+
 def baseline_numpy(M: int, N: int, K: int, dtype: str = "float32", repeat: int = 100):
     """return the latency of numpy implementation
     """
