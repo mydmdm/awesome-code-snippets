@@ -1,8 +1,10 @@
 #ifndef __DEVICEARRAY_CUH__
 #define __DEVICEARRAY_CUH__
 
+#include "HostArray.h"
+
 #include <cuda_runtime.h>
-#include <random>
+#include <stdexcept>
 
 template <typename T>
 struct DeviceAllocator
@@ -18,7 +20,7 @@ struct DeviceAllocator
         }
         *p_end = (*p_start) + size;
     }
-    void free(T **p_start, T **p_end)
+    void deallocate(T **p_start, T **p_end)
     {
         if (*p_start)
         {
@@ -30,13 +32,13 @@ struct DeviceAllocator
 };
 
 template <typename T>
-class DeviceArray : public ArrayBase<T, DeviceAllocator<T>()>
+class DeviceArray : public ArrayBase<T, DeviceAllocator<T>>
 {
-    using ArrayBase<T, DeviceAllocator<T>()>::ArrayBase;
+    using ArrayBase<T, DeviceAllocator<T>>::ArrayBase;
 
     void from_host(const T *src)
     {
-        auto result = cudaMemcpy(_start, src, this->size() * sizeof(T), cudaMemcpyHostToDevice);
+        auto result = cudaMemcpy(this->_start, src, this->size() * sizeof(T), cudaMemcpyHostToDevice);
         if (result != cudaSuccess)
         {
             throw std::runtime_error("failed to copy to device memory");
@@ -45,7 +47,7 @@ class DeviceArray : public ArrayBase<T, DeviceAllocator<T>()>
 
     void to_host(T *dst)
     {
-        auto result = cudaMemcpy(dst, _start, this->size() * sizeof(T), cudaMemcpyDeviceToHost);
+        auto result = cudaMemcpy(dst, this->_start, this->size() * sizeof(T), cudaMemcpyDeviceToHost);
         if (result != cudaSuccess)
         {
             throw std::runtime_error("failed to copy to host memory");

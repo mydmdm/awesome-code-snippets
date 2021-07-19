@@ -26,6 +26,12 @@
     } while (0)
 
 /**
+ * syntax sugar
+ */
+#define range(VAR, STOP) for (auto VAR = 0u; VAR != STOP; ++VAR)
+#define foreach(VAR, CONTAINER) for (auto VAR : CONTAINER)
+
+/**
  * Assertion and Expection
  */
 
