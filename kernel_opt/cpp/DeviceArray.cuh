@@ -2,30 +2,37 @@
 #define __DEVICEARRAY_CUH__
 
 #include <cuda_runtime.h>
+#include <random>
 
 template <typename T>
-class DeviceArray
+struct DeviceAllocator
 {
-public:
-    DeviceArray(size_t s)
+    void allocate(size_t size, T **p_start, T **p_end)
     {
-        this->allocate(s);
+        cudaError_t result = cudaMalloc((void **)p_start, size * sizeof(T));
+        if (result != cudaSuccess)
+        {
+            *p_start = nullptr;
+            *p_end = nullptr;
+            throw std::runtime_error("failed to allocate device memory");
+        }
+        *p_end = (*p_start) + size;
     }
+    void free(T **p_start, T **p_end)
+    {
+        if (*p_start)
+        {
+            cudaFree(*p_start);
+            *p_start = nullptr;
+            *p_end = nullptr;
+        }
+    }
+};
 
-    ~DeviceArray()
-    {
-        this->free();
-    }
-
-    inline size_t size() const
-    {
-        return _end - _start;
-    }
-
-    inline const T *data(size_t offset = 0u) const
-    {
-        return _start + offset;
-    }
+template <typename T>
+class DeviceArray : public ArrayBase<T, DeviceAllocator<T>()>
+{
+    using ArrayBase<T, DeviceAllocator<T>()>::ArrayBase;
 
     void from_host(const T *src)
     {
@@ -44,30 +51,6 @@ public:
             throw std::runtime_error("failed to copy to host memory");
         }
     }
-
-protected:
-    void allocate(size_t size)
-    {
-        cudaError_t result = cudaMalloc((void **)&_start, size * sizeof(T));
-        if (result != cudaSuccess)
-        {
-            _start = _end = nullptr;
-            throw std::runtime_error("failed to allocate device memory");
-        }
-        size_ = size;
-    }
-
-    void free()
-    {
-        if (_start)
-        {
-            cudaFree(_start);
-            _start = _end = nullptr;
-        }
-    }
-
-    T *_start{nullptr};
-    T *_end{nullptr};
 };
 
 #endif /* __DEVICEARRAY_CUH__ */
