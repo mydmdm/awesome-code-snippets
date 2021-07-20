@@ -1,9 +1,8 @@
-#include "DeviceArray.cuh"
-#include "HostArray.h"
+#include "Tensors.h"
 #include "compute.h"
 
-#ifndef DT
-#define DT float
+#ifndef D
+#define D float
 #endif
 
 int main(int argc, char *argv[])

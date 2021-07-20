@@ -39,4 +39,12 @@ struct Array : public Array_<T>
     }
 };
 
+template <typename T, size_t ROWS, size_t COLS, class ALLC>
+struct Matrix : public Array<T, ROWS * COLS, ALLC>
+{
+    using Array<T, ROWS * COLS, ALLC>::Array;
+    static const size_t _rows = ROWS;
+    static const size_t _cols = COLS;
+};
+
 #endif /* __TENSORS_H__ */
