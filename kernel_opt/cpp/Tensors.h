@@ -16,39 +16,26 @@ struct MatR // row-majored matrix
     }
 };
 
-template <typename T>
-struct Array_
-{
-    T *_start{nullptr};
-    T *_end{nullptr};
-};
-
 template <typename T, size_t SIZE, class ALLC>
 struct Array : public Array_<T>
 {
     static const size_t _size = SIZE;
-    ALLC _allocator;
 
     Array()
     {
-        _allocator.allocate(SIZE, &this->_start, &this->_end);
+        ALLC().allocate(SIZE, this);
     }
 
-    Array(Array<T, SIZE, HostAllocator<T>> &src)
+    Array(Array_<T> &src)
     {
-        _allocator.allocate(SIZE, &this->_start, &this->_end);
-        _allocator.copy_from_host(this->_start, src._start, SIZE);
-    }
-
-    Array(Array<T, SIZE, DeviceAllocator<T>> &src)
-    {
-        _allocator.allocate(SIZE, &this->_start, &this->_end);
-        _allocator.copy_from_device(this->_start, src._start, SIZE);
+        assert_eq(SIZE, len(&src), "SizeMismatch");
+        ALLC().allocate(SIZE, this);
+        check_cuda(copy_memory<T>(this, &src));
     }
 
     ~Array()
     {
-        _allocator.deallocate(&this->_start, &this->_end);
+        ALLC().deallocate(this);
     }
 };
 

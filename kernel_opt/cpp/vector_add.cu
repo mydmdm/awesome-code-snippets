@@ -14,8 +14,12 @@
 #endif
 
 // number of threads per block
-#ifndef THR
-#define THR 128
+#ifndef TPB
+#define TPB 256
+#endif
+
+#ifndef num_repeat
+#define num_repeat 100
 #endif
 
 /* use template parameter to transfer const parameter and use __restrict__ could help nvcc to optimize
@@ -32,8 +36,7 @@ __global__ void cu_vec_add_naive(const T *__restrict__ a, const T *__restrict__ 
 
 int main()
 {
-    const unsigned num_repeat = 100;
-    Array<D, N, HostAllocator<D>> a, b, c0;
+    Array<D, N, PinnedHostAllocator<D>> a, b, c0;
     // randn<D>(a, 0.0, 1.0);
     // randn<D>(b, 0.0, 1.0);
     set_const<D>(a, 1.0);
@@ -57,11 +60,12 @@ int main()
         auto now = get_now();
         range(i, num_repeat)
         {
-            cu_vec_add_naive<D, N><<<iceil(N, THR), THR>>>(d_a._start, d_b._start, d_c._start);
+            cu_vec_add_naive<D, N><<<iceil(N, TPB), TPB>>>(d_a._start, d_b._start, d_c._start);
         }
+        cudaDeviceSynchronize();
         auto t = time_difference_ns(now);
         fprintf(stdout, "cu_vec_add_naive, %lu\n", t / num_repeat);
-        Array<D, N, HostAllocator<D>> c(d_c);
+        Array<D, N, PinnedHostAllocator<D>> c(d_c);
         assert_true(memcmp(c0._start, c._start, N * sizeof(D)) == 0, "ComputeWrong");
     }
 }
