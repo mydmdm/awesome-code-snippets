@@ -22,35 +22,44 @@
 
 #define HOSTALLOC PinnedHostAllocator
 
+/* compute C = A*B^T, A is (M,K), B is (N,K), and C is (M,N)
+*/
 int main(int argc, char *argv[])
 {
 
     fprintf(stdout, "matmul test with shape (M,N,K)=(%d,%d,%d)\n", M, N, K);
 
-    Matrix<D, M, K, HOSTALLOC<D>> a;
-    Matrix<D, N, K, HOSTALLOC<D>> a;
+    auto hoa = PinnedHostAllocator<D>(); // host memory allocator
+    auto dva = DeviceAllocator<D>();
+    Matrix<D, M, K> a(hoa);
+    Matrix<D, N, K> b(hoa);
+    Matrix<D, M, N> c0(hoa);
 
-    a.randn(0.0, 1.0);
-    b.randn(0.0, 1.0);
+    // randn<D>(a, 0.0, 1.0);
+    // randn<D>(b, 0.0, 1.0);
+    set_const<D>(a, 1.0);
+    set_const<D>(b, 1.0);
+
+    Matrix<D, M, K> d_a(dva, &a);
+    Matrix<D, N, K> d_b(dva, &b);
+    Matrix<D, M, N> d_c(dva);
+
     if (1)
     {
         auto now = get_now();
-        matmul_naive(a.matr(M, K), b.matr(K, N), c0.matr(M, N));
-        auto t = time_difference_ns(now);
-        fprintf(stdout, "naive, %lu\n", t);
-    }
-    if (1)
-    {
-        HostArray<DT> c(M * N);
-        auto now = get_now();
-        range(i, M)
+        range(x, M)
         {
-            range(j, N)
+            range(y, N)
             {
-                c.data[i * N + j] = dot_product(a.data + i * K, b.data + j, K, 1u, N);
+                c0._start[x * N + y] = 0;
+                range(z, K)
+                {
+                    c0._start[x * N + y] += a._start[x * K + z] * b._start[y * K + z];
+                }
             }
         }
         auto t = time_difference_ns(now);
-        fprintf(stdout, "naive_dot, %lu\n", t);
+        fprintf(stdout, "naive_cpu, %lu\n", t);
+        is_const<D>(c0, K);
     }
 }
