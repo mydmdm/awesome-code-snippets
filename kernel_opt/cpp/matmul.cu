@@ -1,23 +1,35 @@
 #include "Tensors.h"
 #include "compute.h"
 
+#if !defined(M) || !defined(N) || !defined(K)
+#define M 1024
+#define N 512
+#define K 256
+#endif
+
 #ifndef D
 #define D float
 #endif
 
+// number of threads per block
+#ifndef TPB
+#define TPB 256
+#endif
+
+#ifndef num_repeat
+#define num_repeat 100
+#endif
+
+#define HOSTALLOC PinnedHostAllocator
+
 int main(int argc, char *argv[])
 {
-#if !(defined(M) && defined(N) && defined(K))
-    assert_eq(argc, 4, "InputArgs");
-    auto M = atoi(argv[1]);
-    auto N = atoi(argv[2]);
-    auto K = atoi(argv[3]);
-#else
-    assert_eq(argc, 1, "InputArgs");
-#endif
+
     fprintf(stdout, "matmul test with shape (M,N,K)=(%d,%d,%d)\n", M, N, K);
 
-    HostArray<DT> a(M * K), b(K * N), c0(M * N);
+    Matrix<D, M, K, HOSTALLOC<D>> a;
+    Matrix<D, N, K, HOSTALLOC<D>> a;
+
     a.randn(0.0, 1.0);
     b.randn(0.0, 1.0);
     if (1)

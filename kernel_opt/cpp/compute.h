@@ -15,6 +15,19 @@ void set_const(Array_<T> &arr, T val)
 }
 
 template <typename T>
+bool is_const(Array_<T> &arr, T val)
+{
+    for (auto p = arr._start; p != arr._end; ++p)
+    {
+        if (*p != val)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+template <typename T>
 void randn(Array_<T> &arr, T mean, T std)
 {
     std::default_random_engine generator;
@@ -45,23 +58,6 @@ T dot_product(const T *a, const T *b, size_t size, size_t step_a, size_t step_b)
         b += step_b;
     }
     return c;
-}
-
-template <class MAT = MatR<float>>
-void matmul_naive(MAT a, MAT b, MAT c)
-{
-    assert_eq(a.cols, b.rows, "InputShapeCheck");
-    range(i, a.rows)
-    {
-        range(j, b.cols)
-        {
-            *c.at(i, j) = 0;
-            range(k, a.cols)
-            {
-                *c.at(i, j) += (*a.at(i, k)) * (*b.at(k, j));
-            }
-        }
-    }
 }
 
 #endif /* __COMPUTE_H__ */

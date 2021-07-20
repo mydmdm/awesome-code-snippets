@@ -36,13 +36,15 @@ __global__ void cu_vec_add_naive(const T *__restrict__ a, const T *__restrict__ 
 
 int main()
 {
-    Array<D, N, PinnedHostAllocator<D>> a, b, c0;
+    auto hoa = PinnedHostAllocator<D>(); // host memory allocator
+    auto dva = DeviceAllocator<D>();
+    Array<D, N> a(hoa), b(hoa), c0(hoa);
     // randn<D>(a, 0.0, 1.0);
     // randn<D>(b, 0.0, 1.0);
     set_const<D>(a, 1.0);
     set_const<D>(b, 1.0);
 
-    Array<D, N, DeviceAllocator<D>> d_a(a), d_b(b), d_c;
+    Array<D, N> d_a(dva, &a), d_b(dva, &b), d_c(dva);
 
     if (1)
     {
@@ -53,6 +55,7 @@ int main()
         }
         auto t = time_difference_ns(now);
         fprintf(stdout, "naive_cpu, %lu\n", t / num_repeat);
+        is_const<D>(c0, 2.0);
     }
 
     if (1)
@@ -65,7 +68,7 @@ int main()
         cudaDeviceSynchronize();
         auto t = time_difference_ns(now);
         fprintf(stdout, "cu_vec_add_naive, %lu\n", t / num_repeat);
-        Array<D, N, PinnedHostAllocator<D>> c(d_c);
+        Array<D, N> c(hoa, &d_c);
         assert_true(memcmp(c0._start, c._start, N * sizeof(D)) == 0, "ComputeWrong");
     }
 }

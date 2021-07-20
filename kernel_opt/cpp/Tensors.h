@@ -4,45 +4,43 @@
 #include "Allocator.cuh"
 #include "utils.h"
 
-template <typename T>
-struct MatR // row-majored matrix
-{
-    MatR(size_t r, size_t c, T *p) : rows(r), cols(c), data(p) {}
-    size_t rows, cols;
-    T *data;
-    inline T *at(size_t i, size_t j) const
-    {
-        return data + i * cols + j;
-    }
-};
-
-template <typename T, size_t SIZE, class ALLC>
+template <typename T, size_t SIZE>
 struct Array : public Array_<T>
 {
     static const size_t _size = SIZE;
 
-    Array()
+    Array(Allocator_<T> allc, Array_<T> *src = nullptr)
     {
-        ALLC().allocate(SIZE, this);
-    }
-
-    Array(Array_<T> &src)
-    {
-        assert_eq(SIZE, len(&src), "SizeMismatch");
-        ALLC().allocate(SIZE, this);
-        check_cuda(copy_memory<T>(this, &src));
+        allc.allocate(SIZE, this);
+        if (src)
+        {
+            assert_eq(SIZE, len(src), "SizeMismatch");
+            check_cuda(copy_memory<T>(this, src));
+        }
     }
 
     ~Array()
     {
-        ALLC().deallocate(this);
+        switch (this->_type)
+        {
+        case MemoryType::HostNaive:
+            NaiveHostAllocator<T>().deallocate(this);
+            return;
+        case MemoryType::HostPinned:
+            PinnedHostAllocator<T>().deallocate(this);
+            return;
+        case MemoryType::Device:
+            DeviceAllocator<T>().deallocate(this);
+            return;
+        }
+        assert_true(false, "NotImplemented");
     }
 };
 
-template <typename T, size_t ROWS, size_t COLS, class ALLC>
-struct Matrix : public Array<T, ROWS * COLS, ALLC>
+template <typename T, size_t ROWS, size_t COLS>
+struct Matrix : public Array<T, ROWS * COLS>
 {
-    using Array<T, ROWS * COLS, ALLC>::Array;
+    using Array<T, ROWS * COLS>::Array;
     static const size_t _rows = ROWS;
     static const size_t _cols = COLS;
 };
