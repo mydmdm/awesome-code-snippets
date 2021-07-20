@@ -31,6 +31,9 @@
 #define range(VAR, STOP) for (auto VAR = 0u; VAR != STOP; ++VAR)
 #define foreach(VAR, CONTAINER) for (auto VAR : CONTAINER)
 
+// integer ceil
+#define iceil(A, B) ((A + B - 1) / (B))
+
 /**
  * Assertion and Expection
  */
