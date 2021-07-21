@@ -43,6 +43,16 @@ struct Matrix : public Array<T, ROWS * COLS>
     using Array<T, ROWS * COLS>::Array;
     static const size_t _rows = ROWS;
     static const size_t _cols = COLS;
+
+    inline T &at(size_t i, size_t j)
+    {
+        return this->_start[i * COLS + j];
+    }
+
+    inline const T &at(size_t i, size_t j) const
+    {
+        return this->_start[i * COLS + j];
+    }
 };
 
 #endif /* __TENSORS_H__ */
