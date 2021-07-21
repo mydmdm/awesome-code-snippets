@@ -28,6 +28,17 @@ bool is_const(Array_<T> &arr, T val)
 }
 
 template <typename T>
+T max_error(Array_<T> &a, Array_<T> &b)
+{
+    T err = 0;
+    range(i, len<T>(&a))
+    {
+        err = std::max(err, std::abs(a._start[i] - b._start[i]));
+    }
+    return err;
+}
+
+template <typename T>
 void randn(Array_<T> &arr, T mean, T std)
 {
     std::default_random_engine generator;
@@ -35,6 +46,15 @@ void randn(Array_<T> &arr, T mean, T std)
     for (auto p = arr._start; p != arr._end; ++p)
     {
         *p = distribution(generator);
+    }
+}
+
+template <typename T>
+void randint(Array_<T> &arr, int vmin, int vmax)
+{
+    for (auto p = arr._start; p != arr._end; ++p)
+    {
+        *p = (rand() % (vmax - vmin)) + vmin;
     }
 }
 
