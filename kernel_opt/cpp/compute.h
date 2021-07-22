@@ -28,14 +28,21 @@ bool is_const(Array_<T> &arr, T val)
 }
 
 template <typename T>
-T max_error(Array_<T> &a, Array_<T> &b)
+size_t count_error(Array_<T> &a, Array_<T> &b, double *max_err = nullptr, double epison = 1e-6)
 {
+    size_t num = 0;
     T err = 0;
     range(i, len<T>(&a))
     {
-        err = std::max(err, std::abs(a._start[i] - b._start[i]));
+        auto tmp = std::abs(a._start[i] - b._start[i]);
+        num += tmp > epison;
+        err = std::max(err, tmp);
     }
-    return err;
+    if (max_err)
+    {
+        *max_err = err;
+    }
+    return num;
 }
 
 template <typename T>
@@ -64,6 +71,22 @@ void vector_add(const T *a, const T *b, T *c)
     range(i, size)
     {
         c[i] = a[i] + b[i];
+    }
+}
+
+template <typename T, size_t C_ROWS, size_t C_COLS, size_t WIDTH>
+void matmul(const Matrix<T, C_ROWS, WIDTH> &a, const Matrix<T, WIDTH, C_COLS> &b, Matrix<T, C_ROWS, C_COLS> &c)
+{
+    range(x, C_ROWS)
+    {
+        range(y, C_COLS)
+        {
+            c.at(x, y) = 0;
+            range(z, WIDTH)
+            {
+                c.at(x, y) += a.at(x, z) * b.at(z, y);
+            }
+        }
     }
 }
 
