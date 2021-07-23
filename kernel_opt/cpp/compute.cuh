@@ -14,10 +14,6 @@ __global__ void cu_matmul_naive(const T *__restrict__ a, const T *__restrict__ b
         c[row * C_COLS + col] = 0;
         range(z, WIDTH)
         {
-            // auto idx_a = row * WIDTH + z;
-            // auto idx_b = z * C_COLS + col;
-            // assert(idx_a < C_ROWS * WIDTH);
-            // assert(idx_b < WIDTH * C_COLS);
             c[row * C_COLS + col] += a[row * WIDTH + z] * b[z * C_COLS + col];
         }
     }

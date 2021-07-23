@@ -1,25 +1,8 @@
 #ifndef __ALLOCATOR_CUH__
 #define __ALLOCATOR_CUH__
 
+#include "utils.cuh"
 #include "utils.h"
-
-#include <cuda_runtime.h>
-#include <stdexcept>
-
-inline void check_cuda(cudaError_t result, const char *msg = nullptr)
-{
-    if (result != cudaSuccess)
-    {
-        if (msg)
-        {
-            throw std::runtime_error(msg);
-        }
-        else
-        {
-            throw std::runtime_error("operation failed");
-        }
-    }
-}
 
 enum MemoryType
 {
