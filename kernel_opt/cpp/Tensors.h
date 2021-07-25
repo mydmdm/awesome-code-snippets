@@ -23,8 +23,8 @@ struct Array : public Array_<T>
     {
         switch (this->_type)
         {
-        case MemoryType::HostNaive:
-            NaiveHostAllocator<T>().deallocate(this);
+        case MemoryType::HostPageable:
+            PageableHostAllocator<T>().deallocate(this);
             return;
         case MemoryType::HostPinned:
             PinnedHostAllocator<T>().deallocate(this);

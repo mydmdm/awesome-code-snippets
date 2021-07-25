@@ -12,66 +12,76 @@
 
 #define num_repeat 100
 
-#define HOSTALLOC PinnedHostAllocator
+struct TestContext
+{
+    PinnedHostAllocator<D> a_host;
+    DeviceAllocator<D> a_dev;
+    Matrix<D, M, K> a;
+    Matrix<D, K, N> b;
+    Matrix<D, M, N> c0; // ground truth
+    // Matrix<D, M, N> c;
 
-#define TEST(cu_kernel)                                                         \
-    do                                                                          \
-    {                                                                           \
-        auto now = get_now();                                                   \
-        range(i, num_repeat)                                                    \
-        {                                                                       \
-            cu_kernel<<<blocks, threads>>>(d_a._start, d_b._start, d_c._start); \
-        }                                                                       \
-        cudaDeviceSynchronize();                                                \
-        auto t = time_difference_ns(now);                                       \
-        fprintf(stdout, "%s, %e\n", #cu_kernel, (double)t / num_repeat);        \
-        Matrix<D, M, N> c(hoa, &d_c);                                           \
-        double max_err;                                                         \
-        auto num_err = count_error(c0, c, &max_err);                            \
-        if (num_err)                                                            \
-        {                                                                       \
-            fprintf(stdout, "max error is %e\n", max_err);                      \
-            fprintf(stdout, "number of error is %lu\n", num_err);               \
-        }                                                                       \
-    } while (0)
+    Matrix<D, M, K> d_a;
+    Matrix<D, K, N> d_b;
+    // Matrix<D, M, N> d_c;
+
+    double num_macs = M * N * K; // number of MAC (Multiply-Accumulate) operations
+
+    TestContext()
+        : a(a_host), b(a_host), c0(a_host),
+          d_a(a_dev), d_b(a_dev)
+    {
+        randint<D>(a, 0.0, 100.0);
+        randint<D>(b, 0.0, 100.0);
+        // set_const<D>(a, 1.0);
+        // set_const<D>(b, 1.0);
+        copy_memory<D>(&d_a, &a);
+        copy_memory<D>(&d_b, &b);
+
+        auto name = "naive_cpu";
+        auto now = get_now();
+        matmul<D, M, N, K>(a, b, c0);
+        auto t = time_difference_ns(now);
+        fprintf(stdout, "%s, latency(ns), %e, THR(GFLOPS), %.2f\n", name, (double)t, num_macs / t);
+    }
+
+    void test_kernel(const char *name, void (*kernel)(const D *, const D *, D *), dim3 blocks, dim3 threads)
+    {
+        Matrix<D, M, N> d_c(a_dev);
+        auto now = get_now();
+        range(i, num_repeat)
+        {
+            kernel<<<blocks, threads>>>(d_a._start, d_b._start, d_c._start);
+        }
+        cudaDeviceSynchronize();
+        auto t = time_difference_ns(now);
+        fprintf(stdout, "%s, latency(ns), %e, THR(GFLOPS), %.2f\n", name, (double)t, num_macs / t);
+
+        Matrix<D, M, N> c(a_host, &d_c);
+        double max_err;
+        auto num_err = count_error(c0, c, &max_err);
+        if (num_err)
+        {
+            fprintf(stdout, "max error is %e\n", max_err);
+            fprintf(stdout, "number of error is %lu\n", num_err);
+        }
+    }
+};
 
 /* compute C = A*B, A is (M,K), B is (K,N), and C is (M,N)
 */
 int main(int argc, char *argv[])
 {
-
+    auto prop = print_device_properties();
     fprintf(stdout, "matmul test with shape (M,N,K)=(%d,%d,%d)\n", M, N, K);
 
-    auto hoa = PinnedHostAllocator<D>(); // host memory allocator
-    auto dva = DeviceAllocator<D>();
-    Matrix<D, M, K> a(hoa);
-    Matrix<D, K, N> b(hoa);
-    Matrix<D, M, N> c0(hoa);
+    TestContext tc;
 
-    randint<D>(a, 0.0, 100.0);
-    randint<D>(b, 0.0, 100.0);
-    // set_const<D>(a, 1.0);
-    // set_const<D>(b, 1.0);
-
-    if (1)
-    {
-        auto now = get_now();
-        matmul<D, M, N, K>(a, b, c0);
-        auto t = time_difference_ns(now);
-        fprintf(stdout, "naive_cpu, %e\n", (double)t);
-        // is_const<D>(c0, K);
-    }
-
-    Matrix<D, M, K> d_a(dva, &a);
-    Matrix<D, K, N> d_b(dva, &b);
-    Matrix<D, M, N> d_c(dva);
     dim3 threads(TILE, TILE);
     dim3 blocks(iceil(N, TILE), iceil(M, TILE));
     fprintf(stdout, "launing kernel blocks=(%u,%u), threads=(%u,%u)\n", blocks.x, blocks.y, threads.x, threads.y);
 
-    TEST(cu_matmul_naive<D COMMA M COMMA N COMMA K>);
+    tc.test_kernel("cu_matmul_naive", cu_matmul_naive<D, M, N, K>, blocks, threads);
 
-    TEST(cu_matmul_tiled<D COMMA M COMMA N COMMA K COMMA TILE>);
-
-    TEST(cu_matmul_tiled_t<D COMMA M COMMA N COMMA K COMMA TILE>);
+    tc.test_kernel("cu_matmul_tiled", cu_matmul_tiled<D, M, N, K, TILE>, blocks, threads);
 }

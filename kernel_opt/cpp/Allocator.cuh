@@ -6,7 +6,7 @@
 
 enum MemoryType
 {
-    HostNaive,
+    HostPageable,
     HostPinned,
     Device
 };
@@ -14,7 +14,7 @@ enum MemoryType
 template <typename T>
 struct Array_
 {
-    MemoryType _type{MemoryType::HostNaive};
+    MemoryType _type{MemoryType::HostPageable};
     T *_start{nullptr};
     T *_end{nullptr};
 };
@@ -73,9 +73,9 @@ cudaError_t free_naive(void *ptr)
 }
 
 template <typename T>
-struct NaiveHostAllocator : public Allocator_<T>
+struct PageableHostAllocator : public Allocator_<T>
 {
-    NaiveHostAllocator() : Allocator_<T>(malloc_naive, free_naive, MemoryType::HostNaive) {}
+    PageableHostAllocator() : Allocator_<T>(malloc_naive, free_naive, MemoryType::HostPageable) {}
 };
 
 template <typename T>

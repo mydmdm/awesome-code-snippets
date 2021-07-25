@@ -17,17 +17,23 @@ CUDA_FLAGS = $(CUDA_FLAGS_ADV)
 
 LINK_FLAGS = -fPIC
 
-.PHONY: clean arch matmul
-# run matmul test
-gpu-info: device_info.cu
-	$(CUDA_COMP) -o $@.exe $<
+BUILD_DIR = build
+BIN_DIR = ${BUILD_DIR}/bin
 
-arch: gpu-info
-	$(eval CUDA_ARCH := sm_$(shell ./gpu-info.exe | head -1 | sed -n 's/.*cm_\([0-9]\+\).*/\1/p'))
+.PHONY: clean arch matmul
+
+all: matmul
+
+env-prep: device_info.cu
+	mkdir -p ${BIN_DIR}
+	$(CUDA_COMP) -o ${BIN_DIR}/gpu-info $<
+
+arch: env-prep
+	$(eval CUDA_ARCH := sm_$(shell ${BIN_DIR}/gpu-info | head -1 | sed -n 's/.*cm_\([0-9]\+\).*/\1/p'))
 	echo ${CUDA_ARCH}
 
 matmul: matmul.cu arch
-	$(CUDA_COMP) $(CUDA_FLAGS) $(CXX_INC) $(CUDA_INC) -o $@.exe $<
+	$(CUDA_COMP) $(CUDA_FLAGS) $(CXX_INC) $(CUDA_INC) -o ${BIN_DIR}/$@ $<
 
 clean:
 	rm -f *.out *.x *.a *.so *.o *.mod *.modmic *.ptx *.log

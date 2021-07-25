@@ -19,7 +19,7 @@ inline void check_cuda(cudaError_t result, const char *msg = nullptr)
     }
 }
 
-void print_device_properties(int device = 0)
+cudaDeviceProp print_device_properties(int device = 0)
 {
     cudaDeviceProp prop;
     check_cuda(cudaGetDeviceProperties(&prop, device));
@@ -28,6 +28,7 @@ void print_device_properties(int device = 0)
     fprintf(stdout, " Shared memory available per block in bytes: %lu\n", prop.sharedMemPerBlock);
     fprintf(stdout, " 32-bit registers available per block: %d\n", prop.regsPerBlock);
     fprintf(stdout, " Warp size in threads: %d\n", prop.warpSize);
+    return prop;
 }
 
 #endif /* __UTILS_CUH__ */
