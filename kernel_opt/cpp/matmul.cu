@@ -45,6 +45,19 @@ struct TestContext
         fprintf(stdout, "%s, latency(ns), %e, THR(GFLOPS), %.2f\n", name, (double)t, num_macs / t);
     }
 
+    void verify(const char *name, double t, Matrix<D, M, N> *d_c)
+    {
+        fprintf(stdout, "%s, latency(ns), %e, THR(GFLOPS), %.2f\n", name, t, num_macs / t);
+        Matrix<D, M, N> c(a_host, d_c);
+        double max_err;
+        auto num_err = count_error(c0, c, &max_err);
+        if (num_err)
+        {
+            fprintf(stdout, "max error is %e\n", max_err);
+            fprintf(stdout, "number of error is %lu\n", num_err);
+        }
+    }
+
     void test_kernel(const char *name, void (*kernel)(const D *, const D *, D *), dim3 blocks, dim3 threads)
     {
         Matrix<D, M, N> d_c(a_dev);
@@ -55,16 +68,7 @@ struct TestContext
         }
         cudaDeviceSynchronize();
         auto t = time_difference_ns(now);
-        fprintf(stdout, "%s, latency(ns), %e, THR(GFLOPS), %.2f\n", name, (double)t, num_macs / t);
-
-        Matrix<D, M, N> c(a_host, &d_c);
-        double max_err;
-        auto num_err = count_error(c0, c, &max_err);
-        if (num_err)
-        {
-            fprintf(stdout, "max error is %e\n", max_err);
-            fprintf(stdout, "number of error is %lu\n", num_err);
-        }
+        verify(name, t, &d_c);
     }
 };
 
