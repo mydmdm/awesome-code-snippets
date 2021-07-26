@@ -3,18 +3,11 @@
 #include "compute.h"
 #include "utils_cublas.cuh"
 
-#define M 2000
-#define N 2000
-#define K 2000
-
-#define D float
-
-#define TILE 16
-
-#define num_repeat 100
+#include "matmul_def.h"
 
 struct TestContext
 {
+    FILE *_fn;
     PinnedHostAllocator<D> a_host;
     DeviceAllocator<D> a_dev;
     cublasHandle_t handler;
@@ -30,10 +23,14 @@ struct TestContext
 
     double flops = 2.0 * M * N * K; // number of MAC (Multiply-Accumulate) operations
 
-    TestContext()
+    TestContext(const char *fname)
         : a(a_host), b(a_host), c0(a_host),
           d_a(a_dev), d_b(a_dev)
     {
+        if (fname)
+        {
+            _fn = fopen(fname, "a+");
+        }
         checkCublasStatus(cublasCreate(&handler));
 
         randint<D>(a, 0.0, 100.0);
@@ -66,11 +63,19 @@ struct TestContext
     ~TestContext()
     {
         checkCublasStatus(cublasDestroy(handler));
+        if (_fn)
+        {
+            fclose(_fn);
+        }
     }
 
     void verify(const char *name, double t, Matrix<D, M, N> *d_c)
     {
-        fprintf(stdout, "%s, latency(ns), %e, Gflop/s, %.2f\n", name, t, flops / t);
+        fprintf(stdout, "name=%s, latency=%.9f, Gflop/s=%.3f\n", t * 1e-9, flops / t);
+        if (_fn)
+        {
+            fprintf(_fn, "name=%s, latency=%.9f, Gflop/s=%.3f\n", t * 1e-9, flops / t);
+        }
         Matrix<D, M, N> c(a_host, d_c);
         double max_err;
         auto num_err = count_error(c0, c, &max_err);
@@ -114,15 +119,26 @@ int main(int argc, char *argv[])
 {
     auto prop = print_device_properties();
     fprintf(stdout, "matmul test with shape (M,N,K)=(%d,%d,%d)\n", M, N, K);
+    int algo = 0;
+    std::string fname = "result.matmul.txt";
 
-    TestContext tc;
-    tc.test_cublas();
+    TestContext tc(fname.c_str());
+
+    if (algo == (int)AlgoSel::all || algo == (int)AlgoSel::cublas)
+    {
+        tc.test_cublas();
+    }
 
     dim3 threads(TILE, TILE);
     dim3 blocks(iceil(N, TILE), iceil(M, TILE));
     fprintf(stdout, "launing kernel blocks=(%u,%u), threads=(%u,%u)\n", blocks.x, blocks.y, threads.x, threads.y);
 
-    tc.test_kernel("cu_matmul_naive", cu_matmul_naive<D, M, N, K>, blocks, threads);
-
-    tc.test_kernel("cu_matmul_tiled", cu_matmul_tiled<D, M, N, K, TILE>, blocks, threads);
+    if (algo == (int)AlgoSel::all || algo == (int)AlgoSel::naive)
+    {
+        tc.test_kernel("cu_matmul_naive", cu_matmul_naive<D, M, N, K>, blocks, threads);
+    }
+    if (algo == (int)AlgoSel::all || algo == (int)AlgoSel::tiled)
+    {
+        tc.test_kernel("cu_matmul_tiled", cu_matmul_tiled<D, M, N, K, TILE>, blocks, threads);
+    }
 }
