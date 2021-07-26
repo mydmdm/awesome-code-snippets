@@ -3,9 +3,9 @@
 #include "compute.h"
 #include "utils_cublas.cuh"
 
-#define M 1024
-#define N 1024
-#define K 512
+#define M 2000
+#define N 2000
+#define K 2000
 
 #define D float
 
@@ -28,12 +28,14 @@ struct TestContext
     Matrix<D, K, N> d_b;
     // Matrix<D, M, N> d_c;
 
-    double num_macs = M * N * K; // number of MAC (Multiply-Accumulate) operations
+    double flops = 2.0 * M * N * K; // number of MAC (Multiply-Accumulate) operations
 
     TestContext()
         : a(a_host), b(a_host), c0(a_host),
           d_a(a_dev), d_b(a_dev)
     {
+        checkCublasStatus(cublasCreate(&handler));
+
         randint<D>(a, 0.0, 100.0);
         randint<D>(b, 0.0, 100.0);
         // set_const<D>(a, 1.0);
@@ -41,13 +43,24 @@ struct TestContext
         copy_memory<D>(&d_a, &a);
         copy_memory<D>(&d_b, &b);
 
-        auto name = "naive_cpu";
-        auto now = get_now();
-        matmul<D, M, N, K>(a, b, c0);
-        auto t = time_difference_ns(now);
-        fprintf(stdout, "%s, latency(ns), %e, THR(GFLOPS), %.2f\n", name, (double)t, num_macs / t);
-
-        checkCublasStatus(cublasCreate(&handler));
+        fprintf(stdout, "generate matrix muliplication test with shape (%lu, %lu, %lu), Gflop = %.2f\n", M, N, K, flops * 1e-9);
+        if (flops >= 1e9)
+        {
+            fprintf(stdout, "too large computation for cpu reference, use cublas for correctness check\n");
+            fprintf(stdout, "use a small (M,N,K) for cpu correctness check\n");
+            Matrix<D, M, N> d_c(a_dev);
+            cublas_matmal<D, M, N, K>(handler, d_a._start, d_b._start, d_c._start);
+            // checkCudaStatus(cudaDeviceSynchronize());
+            copy_memory<D>(&c0, &d_c);
+        }
+        else
+        {
+            auto name = "naive_cpu";
+            auto now = get_now();
+            matmul<D, M, N, K>(a, b, c0);
+            auto t = time_difference_ns(now);
+            fprintf(stdout, "%s, latency(ns), %e, Gflop/s, %.2f\n", name, (double)t, flops / t);
+        }
     }
 
     ~TestContext()
@@ -57,7 +70,7 @@ struct TestContext
 
     void verify(const char *name, double t, Matrix<D, M, N> *d_c)
     {
-        fprintf(stdout, "%s, latency(ns), %e, THR(GFLOPS), %.2f\n", name, t, num_macs / t);
+        fprintf(stdout, "%s, latency(ns), %e, Gflop/s, %.2f\n", name, t, flops / t);
         Matrix<D, M, N> c(a_host, d_c);
         double max_err;
         auto num_err = count_error(c0, c, &max_err);
@@ -76,7 +89,7 @@ struct TestContext
         {
             kernel<<<blocks, threads>>>(d_a._start, d_b._start, d_c._start);
         }
-        cudaDeviceSynchronize();
+        checkCudaStatus(cudaDeviceSynchronize());
         auto t = time_difference_ns(now);
         verify(name, t, &d_c);
     }
@@ -89,7 +102,7 @@ struct TestContext
         {
             cublas_matmal<D, M, N, K>(handler, d_a._start, d_b._start, d_c._start);
         }
-        // cudaDeviceSynchronize();
+        checkCudaStatus(cudaDeviceSynchronize());
         auto t = time_difference_ns(now);
         verify("cublas", t, &d_c);
     }
