@@ -6,6 +6,30 @@
 #include <stdio.h>
 
 /**
+ * declaration of types
+ */
+enum MemoryType
+{
+    HostPageable,
+    HostPinned,
+    Device
+};
+
+template <typename T>
+struct Array_
+{
+    MemoryType _type{MemoryType::HostPageable};
+    T *_start{nullptr};
+    T *_end{nullptr};
+};
+
+struct MatrixShape
+{
+    size_t _rows;
+    size_t _cols;
+};
+
+/**
  * essential 
  */
 #define COMMA ,
@@ -73,7 +97,8 @@
 
 /* dealing with timer
 */
-inline std::chrono::high_resolution_clock::time_point get_now()
+inline std::chrono::high_resolution_clock::time_point
+get_now()
 {
     return std::chrono::high_resolution_clock::now();
 }

@@ -9,7 +9,7 @@ CUDA_COMP = nvcc
 CUDA_HOST = /usr/bin/g++
 CUDA_INC = -I/usr/local/cuda/include
 CUDA_LIB = -L/usr/local/cuda/lib64 -lcublas -lcudart
-CUDA_COMMON_FLAGS = -ccbin $(CUDA_HOST) -std=c++11 -arch=$(CUDA_ARCH) -m64 -w --resource-usage --ptxas-options=-v -Xcompiler -fPIC 
+CUDA_COMMON_FLAGS = -ccbin $(CUDA_HOST) -std=c++11 -arch=$(CUDA_ARCH) -m64 -w --resource-usage --ptxas-options=-v -Xcompiler -fPIC -Wno-deprecated-gpu-targets
 CUDA_FLAGS_DEV = ${CUDA_COMMON_FLAGS} -O0 -g -G
 CUDA_FLAGS_OPT = ${CUDA_COMMON_FLAGS} -O3
 CUDA_FLAGS_ADV = ${CUDA_COMMON_FLAGS} -O3 -lineinfo 
@@ -33,7 +33,7 @@ arch: env-prep
 	echo ${CUDA_ARCH}
 
 matmul: matmul.cu arch
-	$(CUDA_COMP) $(CUDA_FLAGS) $(CXX_INC) $(CUDA_INC) -o ${BIN_DIR}/$@ $<
+	$(CUDA_COMP) $(CUDA_FLAGS) $(CXX_INC) $(CUDA_INC) $(CXX_LIB) $(CUDA_LIB) -o ${BIN_DIR}/$@ $<
 
 clean:
 	rm -f *.out *.x *.a *.so *.o *.mod *.modmic *.ptx *.log

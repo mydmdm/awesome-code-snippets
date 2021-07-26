@@ -4,21 +4,6 @@
 #include "utils.cuh"
 #include "utils.h"
 
-enum MemoryType
-{
-    HostPageable,
-    HostPinned,
-    Device
-};
-
-template <typename T>
-struct Array_
-{
-    MemoryType _type{MemoryType::HostPageable};
-    T *_start{nullptr};
-    T *_end{nullptr};
-};
-
 template <typename T>
 inline int len(Array_<T> *obj)
 {
@@ -45,7 +30,7 @@ struct Allocator_
     void allocate(size_t size, Array_<T> *obj)
     {
         auto result = this->_allocate_fn((void **)&obj->_start, size * sizeof(T));
-        check_cuda(result);
+        checkCudaStatus(result);
         obj->_end = obj->_start + size;
         obj->_type = this->_type;
     }
@@ -54,7 +39,7 @@ struct Allocator_
         if (obj->_start)
         {
             auto result = this->_free_fn(obj->_start);
-            check_cuda(result);
+            checkCudaStatus(result);
             obj->_start = obj->_end = nullptr;
         }
     }

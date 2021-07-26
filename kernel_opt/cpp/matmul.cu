@@ -1,6 +1,7 @@
 #include "Tensors.h"
 #include "compute.cuh"
 #include "compute.h"
+#include "utils_cublas.cuh"
 
 #define M 1024
 #define N 1024
@@ -16,6 +17,8 @@ struct TestContext
 {
     PinnedHostAllocator<D> a_host;
     DeviceAllocator<D> a_dev;
+    cublasHandle_t handler;
+
     Matrix<D, M, K> a;
     Matrix<D, K, N> b;
     Matrix<D, M, N> c0; // ground truth
@@ -43,6 +46,13 @@ struct TestContext
         matmul<D, M, N, K>(a, b, c0);
         auto t = time_difference_ns(now);
         fprintf(stdout, "%s, latency(ns), %e, THR(GFLOPS), %.2f\n", name, (double)t, num_macs / t);
+
+        checkCublasStatus(cublasCreate(&handler));
+    }
+
+    ~TestContext()
+    {
+        checkCublasStatus(cublasDestroy(handler));
     }
 
     void verify(const char *name, double t, Matrix<D, M, N> *d_c)
@@ -70,6 +80,19 @@ struct TestContext
         auto t = time_difference_ns(now);
         verify(name, t, &d_c);
     }
+
+    void test_cublas()
+    {
+        Matrix<D, M, N> d_c(a_dev);
+        auto now = get_now();
+        range(i, num_repeat)
+        {
+            cublas_matmal<D, M, N, K>(handler, d_a._start, d_b._start, d_c._start);
+        }
+        // cudaDeviceSynchronize();
+        auto t = time_difference_ns(now);
+        verify("cublas", t, &d_c);
+    }
 };
 
 /* compute C = A*B, A is (M,K), B is (K,N), and C is (M,N)
@@ -80,6 +103,7 @@ int main(int argc, char *argv[])
     fprintf(stdout, "matmul test with shape (M,N,K)=(%d,%d,%d)\n", M, N, K);
 
     TestContext tc;
+    tc.test_cublas();
 
     dim3 threads(TILE, TILE);
     dim3 blocks(iceil(N, TILE), iceil(M, TILE));

@@ -15,7 +15,7 @@ struct Array : public Array_<T>
         if (src)
         {
             assert_eq(SIZE, len(src), "SizeMismatch");
-            check_cuda(copy_memory<T>(this, src));
+            checkCudaStatus(copy_memory<T>(this, src));
         }
     }
 
@@ -41,8 +41,7 @@ template <typename T, size_t ROWS, size_t COLS>
 struct Matrix : public Array<T, ROWS * COLS>
 {
     using Array<T, ROWS * COLS>::Array;
-    static const size_t _rows = ROWS;
-    static const size_t _cols = COLS;
+    MatrixShape _shape{ROWS, COLS};
 
     inline T &at(size_t i, size_t j)
     {
