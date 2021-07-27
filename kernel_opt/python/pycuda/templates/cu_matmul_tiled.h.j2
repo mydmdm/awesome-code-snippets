@@ -1,0 +1,27 @@
+/* a rectangular (non-square) tile may cause lots of problems
+ * let's restrict the tile to be a square
+*/
+__global__ void _cu_matmul_tiled(const {{ T }} *__restrict__ a, const {{T}} *__restrict__ b, {{T}} *__restrict__ c)
+{
+    __shared__ {{ T }} a_s[{{ TILE }}][{{ TILE }}];
+    __shared__ {{ T }} b_s[{{ TILE }}][{{ TILE }}];
+
+    auto col = blockIdx.x * blockDim.x + threadIdx.x;
+    auto row = blockIdx.y * blockDim.y + threadIdx.y;
+    if (row < {{ C_ROWS }} && col < {{ C_COLS }})
+    {
+        {{ T }} value = 0;
+        range(t, {{ WIDTH }} / {{ TILE }})
+        {
+            a_s[threadIdx.y][threadIdx.x] = a[row * {{ WIDTH }} + (t * {{ TILE }} + threadIdx.x)];
+            b_s[threadIdx.y][threadIdx.x] = b[(t * {{ TILE }} + threadIdx.y) * {{ C_COLS }} + col];
+            __syncthreads();
+            range(z, {{ TILE }})
+            {
+                value += a_s[threadIdx.y][z] * b_s[z][threadIdx.x];
+            }
+            __syncthreads();
+        }
+        c[row * {{ C_COLS }} + col] = value;
+    }
+}
