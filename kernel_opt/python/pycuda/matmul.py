@@ -14,7 +14,7 @@ from jinja2 import Template
 class KernelImplement:
 
     def __init__(self, func: str, c_args: dict = None, e_args: dict = None, comp_opts: list = None) -> None:
-        self.src_template = None
+        self.name = func
         with open(os.path.join('templates', func + ".h.j2")) as fn:
             self.src_template = fn.read()
         tpl_args = dict(c_args or {})
@@ -58,7 +58,7 @@ class MatmulTest:
     def profile(self, ki: KernelImplement, threads: tuple, blocks: tuple = None):
         threads = threads + (1,) if len(threads) == 2 else threads
         blocks = blocks or tuple([math.ceil(x / threads[i]) for i, x in enumerate([self.n, self.m, 1])])
-        print(threads, blocks)
+        assert threads[2] == 1 and threads[0] * threads[1] <= self.gpu_prop.max_threads
         self.d_c.fill(0)
         e_start, e_end = cuda.Event(), cuda.Event()
         e_start.record()
@@ -69,10 +69,11 @@ class MatmulTest:
         secs = e_start.time_till(e_end)*1e-3
         gflops = self.flops * 1e-9 / secs
         err = numpy.max(numpy.abs(self.c0 - self.c))
-        return dict(max_err=err, latency=secs, gflops=gflops, threads=threads, blocks=blocks)
+        return dict(kernel=ki.name, max_err=err, latency=secs, gflops=gflops, threads=threads, blocks=blocks)
 
 
 if __name__ == '__main__':
+    from tabulate import tabulate
     parser = argparse.ArgumentParser('profiling C(mxn) = A(mxk) * B(kxn)')
     parser.add_argument('-m', type=int, default=2000, help='number of rows of A and C')
     parser.add_argument('-n', type=int, default=2000, help='number of columns of C')
@@ -80,6 +81,15 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     tc = MatmulTest(args.m, args.n, args.k)
-    ki = KernelImplement('cu_matmul_naive', tc.tpl_args)
-    result = tc.profile(ki, (32, 32))
-    print(result)
+    threads = tuple([int(math.sqrt(tc.gpu_prop.max_threads))] * 2)  # max number of thread per block
+    kernels = [
+        KernelImplement('cu_matmul_naive', tc.tpl_args),
+        KernelImplement('cu_matmul_tiled', tc.tpl_args, {"TILE": 32}),
+    ]
+    for tk in [32, 64, 128, 160]:
+        kernels.append(KernelImplement(
+            'cu_matmul_tiled_2', tc.tpl_args,
+            {"TM": threads[1], "TN": threads[0], "TK": tk}
+        ))
+    result = [tc.profile(ki, threads) for ki in kernels]
+    print(tabulate(result, headers="keys"))

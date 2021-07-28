@@ -1,0 +1,38 @@
+/* a rectangular (non-square) tile may cause lots of problems
+ * let's restrict the tile to be a square
+*/
+
+#define MIN(A,B) ((A) < (B) ? (A) : (B))
+
+__global__ void cu_matmul_tiled_2(const {{ T }} *__restrict__ a, const {{T}} *__restrict__ b, {{T}} *__restrict__ c)
+{
+    __shared__ {{ T }} a_s[{{ TM }}][{{ TK }}];
+    __shared__ {{ T }} b_s[{{ TK }}][{{ TN }}];
+
+    auto col = blockIdx.x * blockDim.x + threadIdx.x;
+    auto row = blockIdx.y * blockDim.y + threadIdx.y;
+
+    {{ T }} value = 0;
+    // iterate 0:WIDTH-1 with TK and blockDim.x or blockDim.y
+    for (auto ko=0; ko < {{WIDTH}}; ko += {{TK}})
+    {
+        auto k_left = MIN({{TK}}, {{WIDTH}}-ko);
+
+        for (auto ki = threadIdx.x; ki < k_left; ki += blockDim.x)
+            a_s[threadIdx.y][ki] = a[row * {{WIDTH}} + ko + ki];
+
+        for (auto ki = threadIdx.y; ki < k_left; ki += blockDim.y)
+            b_s[ki][threadIdx.x] = b[(ko + ki) * {{C_COLS}} + col];
+        __syncthreads();
+
+        if (row < {{ C_ROWS }} && col < {{ C_COLS }})
+        {
+            for (auto ki = 0; ki < k_left; ++ki)
+                value += a_s[threadIdx.y][ki] * b_s[ki][threadIdx.x];
+        }
+
+        __syncthreads();
+    }
+    if (row < {{ C_ROWS }} && col < {{ C_COLS }})
+        c[row * {{ C_COLS }} + col] = value;
+}
