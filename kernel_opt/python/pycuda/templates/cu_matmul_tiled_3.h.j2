@@ -1,0 +1,82 @@
+/* we will touch the myth of more cuda operations
+*/
+
+#define MIN(A,B) ((A) < (B) ? (A) : (B))
+
+#ifdef DEBUG
+#define debug_info(THRD_X, THRD_Y, THRD_Z, MSG, ...) do{\
+    if (threadIdx.x == (THRD_X) && threadIdx.y == (THRD_Y) && threadIdx.z == (THRD_Z)){\
+        printf("debug<(%d,%d,%d),(%d,%d,%d)>: " MSG "\n", blockIdx.x, blockIdx.y, blockIdx.z, threadIdx.x, threadIdx.y, threadIdx.z, ##__VA_ARGS__);\
+    }\
+}while(0)
+#else
+#define debug_info(THRD_X, THRD_Y, THRD_Z, MSG, ...) {}
+#endif
+
+#define bind_thread(STOP_X, STOP_Y, OFFSET_X, OFFSET_Y) \
+for (auto local_x=threadIdx.x; local_x<(STOP_X); local_x +=blockDim.x){\
+    for (auto local_y=threadIdx.y; local_y<(STOP_Y); local_y+=blockDim.y){\
+        int global_x = OFFSET_X + local_x; \
+        int global_y = OFFSET_Y + local_y; 
+
+#define close_thread }}
+
+/* compute c(M,N) <- a(M,K) * b(K,N)
+ * when launching kernel
+ *  blocksPerGrid = (cdiv(M,BM), cdiv(N,BN))
+ *  threadsPerBlock = 
+ */
+__global__ void cu_matmul_tiled_3(const {{ T }} *__restrict__ a, const {{T}} *__restrict__ b, {{T}} *__restrict__ c)
+{
+    __shared__ {{ T }} a_s[{{ BM }}][{{ BK }}];
+    __shared__ {{ T }} b_s[{{ BN }}][{{ BK }}];
+
+    // iterate 0:K-1 with TK and blockDim.x or blockDim.y
+    for (auto ko=0; ko < {{K}}; ko += {{BK}})
+    {
+        // load a_s(BM,BK) with (tx, ty)
+        for (auto local_x=threadIdx.x; local_x<{{BM}}; local_x +=blockDim.x){
+            for (auto local_y=threadIdx.y; local_y<{{BK}}; local_y+=blockDim.y){
+                int global_x = blockIdx.x * {{BM}} + local_x; // for M-axis in a(M,K)
+                int global_y = ko + local_y; // for K-axis of a(M,K) 
+                if (global_x<{{M}} && global_y<{{K}}) {
+                    debug_info(0,0,0,"a[%d][%d] -> a_s[%d][%d], ko=%d", global_x, global_y, local_x, local_y, ko);
+                    a_s[local_x][local_y] = a[global_x * {{K}} + global_y];
+                }
+            }
+        }
+
+        // load b_s
+        for (auto local_x=threadIdx.x; local_x<{{BK}}; local_x +=blockDim.x){
+            for (auto local_y=threadIdx.y; local_y<{{BN}}; local_y+=blockDim.y){
+                int global_x = ko + local_x; // for K-axis in b(K,N)
+                int global_y = blockIdx.y * {{BN}} + local_y; // for N-axis of b(K,N) 
+                if (global_x<{{K}} && global_y<{{N}}) {
+                    debug_info(0,0,0,"b[%d][%d] -> b_s[%d][%d], ko=%d", global_x, global_y, local_y, local_x, ko);
+                    b_s[local_y][local_x] = b[global_x * {{N}} + global_y];
+                }
+            }
+        }
+
+        __syncthreads();
+
+        // compute dot production of a_s[x,:] and b_s[y,:]
+        for (auto local_x=threadIdx.x; local_x<{{BM}}; local_x +=blockDim.x){
+            for (auto local_y=threadIdx.y; local_y<{{BN}}; local_y+=blockDim.y){
+                int global_x = blockIdx.x * {{BM}} + local_x; // for M-axis in c(M,N)
+                int global_y = blockIdx.y * {{BN}} + local_y; // for N-axis of c(M,N) 
+                if (global_x<{{M}} && global_y<{{N}}) {
+                    {{ T }} value = 0;
+                    for (auto k=0; k<{{BK}} && ko+k<{{K}}; k++){
+                        value += a_s[local_x][k] * b_s[local_y][k];
+                    }
+                    atomicAdd(&c[global_x*{{N}} + global_y], value);
+                    debug_info(0,0,0,"-> c[%d][%d], ko=%d", global_x, global_y, ko);
+                }
+            }
+        }
+
+        __syncthreads();
+    }
+
+}

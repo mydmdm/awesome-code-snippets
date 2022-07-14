@@ -1,5 +1,6 @@
 __global__ void cu_matmul_naive(const {{ T }} * a, const {{T}} * b, {{T}} * c)
 {
+
     auto col = blockIdx.x * blockDim.x + threadIdx.x;
     auto row = blockIdx.y * blockDim.y + threadIdx.y;
 
